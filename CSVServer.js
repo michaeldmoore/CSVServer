@@ -1,9 +1,10 @@
+/*jshint esversion: 6 */ 
 const app = require('fastify')(
 	{
 		logger: {
 			prettyPrint: true
 		}
-	})
+	});
 
 var fs = require('fs');
 
@@ -13,7 +14,7 @@ var csv = require('csvtojson');
 
 app.get('/', function (request, reply) {
 	app.log.info('Testing GET called...');
-})
+});
 
 
 app.post('/search', (request, reply) => {
@@ -21,13 +22,13 @@ app.post('/search', (request, reply) => {
 
 	fs.readdir(dataDirectory, function(err, filenames) {
 		if (err) {
-			app.log.error(err)
+			app.log.error(err);
 		}
 		else {
-			reply.send( filenames )
+			reply.send( filenames );
 		}
 	});	
-})
+});
 
 app.post('/query', function (request, reply) {
 	var result = [];
@@ -45,12 +46,12 @@ app.post('/query', function (request, reply) {
 			app.log.error(reason);
 		});
 	});
-})
+});
 
-async function query(target) {
+async function query(target) {// jshint ignore:line
 	var filename = dataDirectory + '/' + target.target;
 
-	var json = await csv()
+	var json = await csv()// jshint ignore:line
 		.fromFile(filename, {headers : true, trim: true});
 
 	return parseGrafanaRecordSet(target, json);
@@ -110,9 +111,9 @@ function parseGrafanaTimeseriesRecordSet(target, json){
 
 app.listen(4000, err => {
 	if (err) {
-		app.log.error(err)
-		process.exit(1)	
+		app.log.error(err);
+		process.exit(1);
 	}
 
-	app.log.info('server listening on port ${app.server.address().port}')
-})
+	app.log.info('server listening on port ${app.server.address().port}');
+});
