@@ -14,6 +14,8 @@ var csv = require('csvtojson');
 
 app.get('/', function (request, reply) {
 	app.log.info('Testing GET called...');
+	
+	reply.send();
 });
 
 
@@ -100,7 +102,7 @@ function parseGrafanaTimeseriesRecordSet(target, json){
 	json.forEach(function(row){
 		var array = Object.keys(row).map(function(key){return row[key]; });
 		var dataPoint = [];
-		dataPoint[0] = array[1];
+		dataPoint[0] = Number(array[1]);
 		dataPoint[1] = new Date(array[0]).getTime();
 		result.datapoints.push(dataPoint);
 		});
