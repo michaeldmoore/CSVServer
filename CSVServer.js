@@ -6,14 +6,20 @@ const app = require('fastify')(
 		}
 	});
 
-var fs = require('fs');
+const args = require('minimist')(process.argv.slice(2));
 
-var dataDirectory = process.argc > 2 ? process.argv[2] : 'csv';
+const fs = require('fs');
 
-var csv = require('csvtojson');
+const csv = require('csvtojson');
+
+const dataDirectory = args.dataDirectory ? args.dataDirectory : 'csv';
+
+const datetimeCols = args.datetimeCols ? args.datetimeCols.split(',') : ['date'];
 
 app.get('/', function (request, reply) {
 	app.log.info('Testing GET called...');
+
+	reply.send();
 });
 
 
@@ -32,7 +38,10 @@ app.post('/search', (request, reply) => {
 
 app.post('/query', function (request, reply) {
 	var result = [];
+	
 	request.body.targets.forEach(function(target) {
+		target.dateRange = request.body.range;
+		target.maxDataPoints = request.body.maxDataPoints;
 		var p = new Promise(function(resolve, reject) {
 			query(target).then(function(data){
 				resolve(data);
@@ -50,7 +59,6 @@ app.post('/query', function (request, reply) {
 
 async function query(target) {// jshint ignore:line
 	var filename = dataDirectory + '/' + target.target;
-
 	var json = await csv()// jshint ignore:line
 		.fromFile(filename, {headers : true, trim: true});
 
@@ -70,23 +78,55 @@ function parseGrafanaTableRecordSet(target, json){
 	
 	//app.log.info(json);
 	result.type = target.type;
+	result.datetimeCols = [];
 	result.columns = [];
 	Object.keys(json[0]).forEach(function(colName){
 		var col = {};
 		col.text = colName;
 		col.type = colName == 'value' ? 'number' : 'string';
-		//if (colName == 'date' || colName == 'datetime' || colName == "time")
-		//	col.type = 'time';
+		
+		// Extension - try to detect datetime column names
+		if (isDatetimeCol(colName))
+		{
+			result.datetimeCols.push(colName);	
+			col.type = 'time';
+		}
 		result.columns.push(col);
-		});
+	});
+
+	if (result.datetimeCols.length > 0)
+		result.datetimeCol = result.datetimeCols[0];
+
+app.log.info(target.dateRange);
+//app.log.info(target.maxDataPoints);
 	result.rows = [];
 	json.forEach(function(row){
 		var array = Object.keys(row).map(function(key){return row[key]; });
-		array[3] = Number(array[3]);
-		result.rows.push(array);
-		});
+		var isDatetimeInRange = true;
+		for(var i = 0; i < result.columns.length; i++)
+		{
+			if (result.columns[i].type == 'number')
+				array[i] = Number(array[i]);
+			
+			//if (result.columns[i].text == result.datetimeCol)
+				//isDatetimeInRange = !IsDateTimeInRange(array[i], target.dateRange);
+		}
+		//array[3] = Number(array[3]);
+		if (isDatetimeInRange)
+			result.rows.push(array);
+	});
+	
+	// trim excess rows (retaining the latest)
+	var excessRows = result.rows.length - target.maxDataPoints;
+	if (excessRows > 0)
+		result.rows.splice(0, excessRows);
 		
 	return result;
+}
+
+function IsDateTimeInRange(datetime, datetimeRange)
+{
+	return true;
 }
 
 function parseGrafanaTimeseriesRecordSet(target, json){
@@ -108,6 +148,16 @@ function parseGrafanaTimeseriesRecordSet(target, json){
     return result;
 }
 
+// Extension - try to detect datetime column names
+function isDatetimeCol(colName){
+	var rVal = false;
+	
+	datetimeCols.forEach(function(datetimeCol) {
+		if (colName.includes(datetimeCol))
+			rVal = true;
+	});	
+	return rVal;
+}
 
 app.listen(4000, err => {
 	if (err) {
