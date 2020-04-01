@@ -8,26 +8,29 @@ module.exports = function(grunt) {
         }
       }
     },
-	nodemon: {
-	  dev: {
-		script: 'CSVServer.js',
-        ignore:  ['node_modules/**']
-	  }
-	},
-    watch: {
-	  scripts: {
-		files: ['<%= jshint.files %>'],
-		tasks: ['jshint']
-	  }
+    nodemon: {
+      dev: {
+        script: 'CSVServer.js',
+        options: {
+          args: [/*'--csvfolder', 'csv',*/ '--dateformat', 'dd/mm/yyyy'],
+          ignore: ['node_modules/**'],
+        }
+      },
     },
-	concurrent: {
+    watch: {
+      scripts: {
+        files: ['<%= jshint.files %>'],
+        tasks: ['jshint']
+      }
+    },
+    concurrent: {
       dev: {
         tasks: ['nodemon', 'watch'],
         options: {
-            logConcurrentOutput: true
+          logConcurrentOutput: true
         }
       }
-	}
+    }
   });
 
   grunt.loadNpmTasks('grunt-contrib-jshint');
@@ -36,12 +39,4 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-concurrent');
 
   grunt.registerTask('default', ['concurrent']);
-  /*grunt.registerTask('default', '', function() {
-    var taskList = [
-        'jshint',
-		'nodemon',
-		'watch'
-    ];
-    grunt.task.run(taskList);
-  });*/
-};
+ };
