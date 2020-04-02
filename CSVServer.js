@@ -18,7 +18,7 @@ const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
 
 const optionDefinitions = [
-  { name: 'csvfolder', type: String, defaultOption: true, description: 'The CSV data file folder (default - .csv)' },
+  { name: 'folder', type: String, defaultOption: true, description: 'The CSV data file folder (default - .csv)' },
   { name: 'datecols', type: String, multiple: true, description: 'comma seperated list of date field headers'},
   { name: 'dateformat', type: String, description: 'date parsing format (e.g. dd/mm/yyyy HH:mm:ss - see {underline https://devhints.io/moment#formatting-1})' },
   { name: 'nodatetimefilter', type: Boolean, description: 'do not filter time series data by query date/time range)' },
@@ -42,7 +42,7 @@ const usage = commandLineUsage([
 	}
 ]);
 
-var dataDirectory = 'csv';
+var folder = 'csv';
 var datetimeCols = [];
 var dateformat = null;
 var nodatetimefilter = false;
@@ -55,12 +55,12 @@ try{
 	} else {
 //		app.log.info(options);
 
-		dataDirectory = options.csvfolder || 'csv';
+		folder = options.folder || 'csv';
 		datetimeCols = (options.datecols || 'date').split(',');
 		dateformat = options.dateformat;
 		nodatetimefilter = options.nodatetimefilter;
 
-		if (fs.statSync(dataDirectory).isDirectory()){
+		if (fs.statSync(folder).isDirectory()){
 			app.listen(4000, err => {
 				if (err) {
 					app.log.error(err);
@@ -71,7 +71,7 @@ try{
 			})
 		}
 		else {
-			app.log.error ('CSV data directory [' + dataDirectory + '] not found');
+			app.log.error ('folder [' + folder + '] not found');
 		}
 	}
 }
@@ -80,16 +80,6 @@ catch(err){
 	console.log(usage);
 }
 
-function checkDirectory(dir){
-	fs.statSync(dir, function (err, stats){
-		if (err) {
-			throw err;
-		}
-		if (!stats.isDirectory()) {
-			throw new Error(dir + ' is not a directory');
-		};
-	});
-}
 
 app.get('/', function (request, reply) {
 	app.log.info('Testing GET called...');
@@ -100,7 +90,7 @@ app.get('/', function (request, reply) {
 app.post('/search', (request, reply) => {
 	app.log.info(request.body);
 
-	fs.readdir(dataDirectory, function(err, filenames) {
+	fs.readdir(folder, function(err, filenames) {
 		if (err) {
 			app.log.error(err);
 		}
@@ -132,7 +122,7 @@ app.post('/query', function (request, reply) {
 });
 
 async function query(target) {// jshint ignore:line
-	var filename = dataDirectory + '/' + target.target;
+	var filename = folder + '/' + target.target;
 	var json = await csv()// jshint ignore:line
 		.fromFile(filename, {headers : true, trim: true});
 
@@ -194,7 +184,15 @@ function parseGrafanaTableRecordSet(target, json){
 
 function parseGrafanaTimeseriesRecordSet(target, json){
 
-	app.log.info(target);
+//	app.log.info('target='+JSON.stringify(target));
+
+	var format = dateformat;
+	if (target.data && target.data.dateformat)
+		format = target.data.dateformat;
+
+	var nofilter = nodatetimefilter;
+	if (target.data && target.data.nodatetimefilter)
+		nofilter = target.data.nodatetimefilter;
 
 	var result = {};
 	result.target = Object.keys(json[0])[1];
@@ -207,14 +205,13 @@ function parseGrafanaTimeseriesRecordSet(target, json){
 		var array = Object.keys(row).map(function(key){return row[key]; });
 		var sdatetime = array[0];
 
-		var datetime = new moment(sdatetime, dateformat);
+		var datetime = new moment(sdatetime, format);
 
-		if (nodatetimefilter || (datetime >= from && datetime <= to))
+		if (nofilter || (datetime >= from && datetime <= to))
 			result.datapoints.push([Number(array[1]), datetime.valueOf()]);
-		});
+	});
 
-console.log(JSON.stringify(result));
-    return result;
+  return result;
 }
 
 // Extension - try to detect datetime column names
