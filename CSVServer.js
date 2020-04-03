@@ -53,7 +53,7 @@ try{
 	if (options.help) {
 		console.log(usage);
 	} else {
-//		app.log.info(options);
+		//app.log.info('options='+JSON.stringify(options));
 
 		folder = options.folder || 'csv';
 		datetimeCols = (options.datecols || 'date').split(',');
@@ -68,7 +68,7 @@ try{
 				}
 
 				app.log.info('server listening on port ${app.server.address().port}');
-			})
+			});
 		}
 		else {
 			app.log.error ('folder [' + folder + '] not found');
@@ -88,7 +88,7 @@ app.get('/', function (request, reply) {
 
 
 app.post('/search', (request, reply) => {
-	app.log.info(request.body);
+//	app.log.info(request.body);
 
 	fs.readdir(folder, function(err, filenames) {
 		if (err) {
@@ -112,9 +112,10 @@ app.post('/query', function (request, reply) {
 			});
 		});
 		p.then(function(val) {
-			result.push(val);
-			if (result.length == request.body.targets.length)
-				reply.send(result);
+//			result.push(val);
+//			if (result.length == request.body.targets.length)
+//				reply.send(result);
+			reply.send(val);
 		}).catch(function(reason) {
 			app.log.error(reason);
 		});
@@ -156,7 +157,7 @@ function parseGrafanaTableRecordSet(target, json){
 	if (result.datetimeCols.length > 0)
 		result.datetimeCol = result.datetimeCols[0];
 
-	app.log.info(target.dateRange);
+//	app.log.info(target.dateRange);
 //app.log.info(target.maxDataPoints);
 	result.rows = [];
 	json.forEach(function(row){
@@ -179,13 +180,12 @@ function parseGrafanaTableRecordSet(target, json){
 	if (excessRows > 0)
 		result.rows.splice(0, excessRows);
 
-	return result;
+	let results = [];
+	results.push(result);
+	return results;
 }
 
 function parseGrafanaTimeseriesRecordSet(target, json){
-
-//	app.log.info('target='+JSON.stringify(target));
-
 	var format = dateformat;
 	if (target.data && target.data.dateformat)
 		format = target.data.dateformat;
@@ -194,24 +194,50 @@ function parseGrafanaTimeseriesRecordSet(target, json){
 	if (target.data && target.data.nodatetimefilter)
 		nofilter = target.data.nodatetimefilter;
 
-	var result = {};
-	result.target = Object.keys(json[0])[1];
-	result.datapoints = [];
+	var datetimecols = datetimeCols;
+	if (target.data && target.data.datetimecols)
+		datetimecols = target.data.datetimecols.split(',');
+
+	let cols = Object.keys(json[0]);
+
+	// find datetime column
+	let dateCol = 0;
+	cols.forEach((col, i) => {
+		datetimecols.forEach((n) => { if (col===n) dateCol = i; });
+	});
+//	app.log.info('cols='+JSON.stringify(cols));
+//	app.log.info('datetimecols='+JSON.stringify(datetimecols));
+//	app.log.info('dateCol='+dateCol);
+
+	var results = [];
+	let valueCols = [];
+	cols.filter((col)=>{ return col!==cols[dateCol];}).forEach((col, i) => {
+		valueCols.push(cols.findIndex((c) => {return c===col;}));
+		let result = {};
+		result.target = col;
+		result.datapoints = [];
+		results.push(result);
+	});
 
 	const from = new moment(target.dateRange.from);
 	const to   = new moment(target.dateRange.to);
 
-	json.forEach(function(row){
-		var array = Object.keys(row).map(function(key){return row[key]; });
-		var sdatetime = array[0];
+	json.forEach(function(row, i){
+		let values = Object.keys(row).map(function(key){return row[key]; });
 
-		var datetime = new moment(sdatetime, format);
+		let sdatetime = values[dateCol];
+		let datetime = format ? new moment(sdatetime, format) : new moment(sdatetime);
 
-		if (nofilter || (datetime >= from && datetime <= to))
-			result.datapoints.push([Number(array[1]), datetime.valueOf()]);
+//		app.log.info('row['+i+']('+sdatetime+'=>'+datetime+') = '+JSON.stringify(values));
+
+		if (nofilter || (datetime >= from && datetime <= to)){
+			valueCols.forEach((valueCol, i) => {
+				results[i].datapoints.push([Number(values[valueCol]), datetime.valueOf()]);
+			});
+		}
 	});
 
-  return result;
+  return results;
 }
 
 // Extension - try to detect datetime column names

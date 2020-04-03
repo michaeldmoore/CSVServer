@@ -12,7 +12,7 @@ module.exports = function(grunt) {
       dev: {
         script: 'CSVServer.js',
         options: {
-          args: [/*'--csvfolder', 'csv',*/ '--dateformat', 'DD/MM/YYYY HH:mm:ss'],
+          //args: [/*'--csvfolder', 'csv',*/ '--dateformat', 'DD/MM/YYYY HH:mm:ss'],
           ignore: ['node_modules/**'],
         }
       },
