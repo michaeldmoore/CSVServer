@@ -117,6 +117,10 @@ Additionally, this and several other options can be specified on the start-up co
 Starting CSVServer with a command line option --help, shows the list of supported command line options.
 ![image](https://user-images.githubusercontent.com/3724718/78253512-67280000-74ec-11ea-8900-332e7e49ebc3.png)
 
+### --port
+
+Override the default port (4000) used for the server.
+
 ### --folder
 
 Override the CSV file folder - this is the default option, so specifying a folder name at the end of the command line has the same effect as specifying it via this command line option.

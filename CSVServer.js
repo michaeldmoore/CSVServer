@@ -18,6 +18,7 @@ const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
 
 const optionDefinitions = [
+  { name: 'port', type: Number, description: 'server listening port (defaulting to 4000)' },
   { name: 'folder', type: String, defaultOption: true, description: 'The CSV data file folder (default - .csv)' },
   { name: 'datecols', type: String, multiple: true, description: 'comma seperated list of date field headers'},
   { name: 'dateformat', type: String, description: 'date parsing format (e.g. dd/mm/yyyy HH:mm:ss - see {underline https://devhints.io/moment#formatting-1})' },
@@ -61,7 +62,7 @@ try{
 		nodatetimefilter = options.nodatetimefilter;
 
 		if (fs.statSync(folder).isDirectory()){
-			app.listen(4000, err => {
+			app.listen(options.port || 4000, err => {
 				if (err) {
 					app.log.error(err);
 					process.exit(1);
