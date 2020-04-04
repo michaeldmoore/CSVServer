@@ -48,7 +48,7 @@ datetime,sensor,region,value
 
 Each row should have at least one numeric value column (though this can ba called anything).  Each row in the csv file will return a row in the JSON datasource, with the other columns available as named fields.  Generally, there will be a date/time field too, though this is not strictly necessary.
 
-## Sample time-series formatted CSV file
+## Sample single-valued time-series formatted CSV file
 
 ```javascript
 date,temperature
@@ -62,7 +62,23 @@ date,temperature
 2018-12-18 07:00:00.000,45.8
 ```
 
-Each row should have a date field, plus a single value field (again, these can be named anything - though individual panels might import some addition limitations on expected names etc.)
+## Sample multi-valued time-series formatted CSV file
+
+```javascript
+val1,val2,date,val3
+90,73,2020-04-03 10:00,37
+80,84,2020-04-03 10:30,46
+70,80,2020-04-03 11:00,55
+70,80,2020-04-03 11:30,55
+60,65,2020-04-03 12:00,44
+85,46,2020-04-03 12:30,54
+74,67,2020-04-03 13:00,63
+68,58,2020-04-03 13:30,85
+71,79,2020-04-03 14:00,65
+71,79,2020-04-03 14:30,65
+```
+
+Each row should have a date field (by default, named 'date' though this can be overriden - see below), plus one or more uniquely named value fields.
 
 CSVServer runs as a HTTP (REST) server, on port 4000 (this can be changed by editting CSVServer.js).  Also, note that the current version is set to run on the localhost (ie, on the same server as Grafana itself).  Hosting CSVServer on a different server will most likely require a CORS header to be added to the source, and any firewalls configured to support it).  Adding secure HTTPS support would require a similar change.  No plans exist to build this support in - at least - not yet.
 
@@ -107,7 +123,7 @@ Override the CSV file folder - this is the default option, so specifying a folde
 
 ### --datecols
 
-This is an optional comman seperated set of column names to be considered as date or date/time columns.  This is used for table fomatted data queries (i.e. not time series formatted queries) to flag the appropriate data types of date and date/time fields.
+By default, CSVServer treats columns named 'date' as a date/time field.  All other columns are considered to e numerical values.  The --datecols parameter replaces this default name with an alternative - or a list of alternatives - each seperated by a comma (,) character.  Fields matching any of these names are treated as date/time values.
 
 ### --dateformat
 
