@@ -19,10 +19,10 @@ const commandLineUsage = require('command-line-usage');
 
 const optionDefinitions = [
   { name: 'port', type: Number, description: 'server listening port (defaulting to 4000)' },
-  { name: 'folder', type: String, defaultOption: true, description: 'The CSV data file folder (default - .csv)' },
+  { name: 'folder', type: String, defaultOption: true, description: 'The CSV data file folder (default - .csv)'},
   { name: 'datecols', type: String, multiple: true, description: 'comma seperated list of date field headers'},
-  { name: 'dateformat', type: String, description: 'date parsing format (e.g. dd/mm/yyyy HH:mm:ss - see {underline https://devhints.io/moment#formatting-1})' },
-  { name: 'nodatetimefilter', type: Boolean, description: 'do not filter time series data by query date/time range)' },
+  { name: 'dateformat', type: String, description: 'date parsing format (e.g. dd/mm/yyyy HH:mm:ss - see {underline https://devhints.io/moment#formatting-1})'},
+  { name: 'datetimefilter', type: String, description: "use query range [to|from|both|none] default=none"},
 ];
 
 const usage = commandLineUsage([
@@ -46,7 +46,7 @@ const usage = commandLineUsage([
 var folder = 'csv';
 var datetimeCols = [];
 var dateformat = null;
-var nodatetimefilter = false;
+var datetimefilter = 'none';
 
 try{
 	const options = commandLineArgs(optionDefinitions);
@@ -59,7 +59,7 @@ try{
 		folder = options.folder || 'csv';
 		datetimeCols = (options.datecols || 'date').split(',');
 		dateformat = options.dateformat;
-		nodatetimefilter = options.nodatetimefilter;
+		datetimefilter = options.datetimefilter || datetimefilter;
 
 		if (fs.statSync(folder).isDirectory()){
 			app.listen(options.port || 4000, err => {
@@ -89,8 +89,6 @@ app.get('/', function (request, reply) {
 
 
 app.post('/search', (request, reply) => {
-//	app.log.info(request.body);
-
 	fs.readdir(folder, function(err, filenames) {
 		if (err) {
 			app.log.error(err);
@@ -113,9 +111,6 @@ app.post('/query', function (request, reply) {
 			});
 		});
 		p.then(function(val) {
-//			result.push(val);
-//			if (result.length == request.body.targets.length)
-//				reply.send(result);
 			reply.send(val);
 		}).catch(function(reason) {
 			app.log.error(reason);
@@ -124,30 +119,49 @@ app.post('/query', function (request, reply) {
 });
 
 async function query(target) {// jshint ignore:line
-	var filename = folder + '/' + target.target;
-	var json = await csv()// jshint ignore:line
+	let filename = folder + '/' + target.target;
+	let json = await csv()// jshint ignore:line
 		.fromFile(filename, {headers : true, trim: true});
 
+	let format = dateformat;
+	if (target.data && target.data.dateformat)
+		format = target.data.dateformat;
+
+	let filter = datetimefilter;
+	if (target.data && target.data.datetimefilter)
+		filter = target.data.datetimefilter;
+
+	let datetimecols = datetimeCols;
+	if (target.data && target.data.datetimecols)
+		datetimecols = target.data.datetimecols.split(',');
+
+		let cols = Object.keys(json[0]);
+
+	// find datetime column
+	let dateCol = 0;
+	let dateColName;
+	cols.forEach((colName, i) => {
+		datetimecols.forEach((name) => {
+			if (!dateColName && colName===name) {
+				dateColName=colName;
+				dateCol = i;
+			}
+		});
+	});
+
+
 	if (target.type == 'table')
-		return parseGrafanaTableRecordSet(target, json);
+		return parseGrafanaTableRecordSet(target, json, format, filter, cols, dateCol, datetimecols);
 	else
-		return parseGrafanaTimeseriesRecordSet(target, json);
+		return parseGrafanaTimeseriesRecordSet(target, json, format, filter, cols, dateCol);
 }
 
-function parseGrafanaTableRecordSet(target, json){
-	var result = {};
+function parseGrafanaTableRecordSet(target, json, format, filter, cols, dateCol, datetimecols){
+	let result = {type: target.type, columns: [], datetimeCols: []};
+	cols.forEach(function(colName){
+		let col = {text: colName, type: colName == 'value' ? 'number' : 'string'};
 
-	//app.log.info(json);
-	result.type = target.type;
-	result.datetimeCols = [];
-	result.columns = [];
-	Object.keys(json[0]).forEach(function(colName){
-		var col = {};
-		col.text = colName;
-		col.type = colName == 'value' ? 'number' : 'string';
-
-		// Extension - try to detect datetime column names
-		if (isDatetimeCol(colName))
+		if (datetimecols.find((d)=>d===colName))
 		{
 			result.datetimeCols.push(colName);
 			col.type = 'time';
@@ -155,62 +169,56 @@ function parseGrafanaTableRecordSet(target, json){
 		result.columns.push(col);
 	});
 
-	if (result.datetimeCols.length > 0)
-		result.datetimeCol = result.datetimeCols[0];
+	const from = new moment(target.dateRange.from);
+	const to   = new moment(target.dateRange.to);
 
 //	app.log.info(target.dateRange);
 //app.log.info(target.maxDataPoints);
 	result.rows = [];
 	json.forEach(function(row){
-		var array = Object.keys(row).map(function(key){return row[key]; });
-//		var isDatetimeInRange = true;
-		for(var i = 0; i < result.columns.length; i++)
+		let array = Object.keys(row).map(function(key){return row[key]; });
+		let isDatetimeInRange = true;
+		for(let i = 0; i < result.columns.length; i++)
 		{
 			if (result.columns[i].type == 'number')
 				array[i] = Number(array[i]);
+			else if (result.columns[i].type == 'time'){
+				let sdatetime = array[i];
+				let datetime = format ? new moment(sdatetime, format) : new moment(sdatetime);
 
-			//if (result.columns[i].text == result.datetimeCol)
-				//isDatetimeInRange = !IsDateTimeInRange(array[i], target.dateRange);
+				if (i===dateCol){
+					isDatetimeInRange =
+						filter==='none' ||
+						(filter==="to" && datetime <= to) ||
+						(filter==="from" && datetime >= from) ||
+						(filter==="both" && datetime >= from && datetime <= to);
+
+						console.log("sdatetime="+sdatetime+', filter='+filter+', >=from:'+(datetime >= from)+', <=to:'+(datetime <= to)+', isDatetimeInRange:'+isDatetimeInRange+
+							", from="+from+', datetime='+datetime+', to='+to);
+				}
+			}
 		}
-//		if (isDatetimeInRange)
+
+		if (isDatetimeInRange){
 			result.rows.push(array);
+//			console.log('Adding row.  result.rows.length='+result.rows.length);
+		}
 	});
 
 	// trim excess rows (retaining the latest)
 	var excessRows = result.rows.length - target.maxDataPoints;
+console.log('result.rows.length='+result.rows.length+', excessRows='+excessRows);
 	if (excessRows > 0)
 		result.rows.splice(0, excessRows);
 
 	let results = [];
 	results.push(result);
+	//console.log('results='+JSON.stringify(results, null, 2));
 	return results;
 }
 
-function parseGrafanaTimeseriesRecordSet(target, json){
-	var format = dateformat;
-	if (target.data && target.data.dateformat)
-		format = target.data.dateformat;
-
-	var nofilter = nodatetimefilter;
-	if (target.data && target.data.nodatetimefilter)
-		nofilter = target.data.nodatetimefilter;
-
-	var datetimecols = datetimeCols;
-	if (target.data && target.data.datetimecols)
-		datetimecols = target.data.datetimecols.split(',');
-
-	let cols = Object.keys(json[0]);
-
-	// find datetime column
-	let dateCol = 0;
-	cols.forEach((col, i) => {
-		datetimecols.forEach((n) => { if (col===n) dateCol = i; });
-	});
-//	app.log.info('cols='+JSON.stringify(cols));
-//	app.log.info('datetimecols='+JSON.stringify(datetimecols));
-//	app.log.info('dateCol='+dateCol);
-
-	var results = [];
+function parseGrafanaTimeseriesRecordSet(target, json, format, filter, cols, dateCol){
+	let results = [];
 	let valueCols = [];
 	cols.filter((col)=>{ return col!==cols[dateCol];}).forEach((col, i) => {
 		valueCols.push(cols.findIndex((c) => {return c===col;}));
@@ -229,10 +237,11 @@ function parseGrafanaTimeseriesRecordSet(target, json){
 		let sdatetime = values[dateCol];
 		let datetime = format ? new moment(sdatetime, format) : new moment(sdatetime);
 
-//		app.log.info('row['+i+']('+sdatetime+'=>'+datetime+') = '+JSON.stringify(values));
-
-		if (nofilter || (datetime >= from && datetime <= to)){
-			valueCols.forEach((valueCol, i) => {
+		if (filter==='none' ||
+			(filter==="to" && datetime <= to) ||
+			(filter==="from" && datetime >= from) ||
+			(filter==="both" && datetime >= from && datetime <= to)){
+				valueCols.forEach((valueCol, i) => {
 				results[i].datapoints.push([Number(values[valueCol]), datetime.valueOf()]);
 			});
 		}
