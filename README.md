@@ -1,5 +1,7 @@
 # CSVServer
 
+[![michaeldmoore](https://circleci.com/gh/michaeldmoore/CSVServer.svg?style=svg)](https://app.circleci.com/pipelines/github/michaeldmoore/CSVServer) 
+
 Simple node-based CSV adapter for Grafana Simple JSON data source
 
 This is a simple node application to read table or timeseries formatted CSV files as JSON, suitable for Grafana's SimpleJSON data source - or better still - the more capable upgraded simPod JSON datasource 
