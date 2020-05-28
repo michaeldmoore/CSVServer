@@ -20,7 +20,7 @@ module.exports = function(grunt) {
     watch: {
       scripts: {
         files: ['<%= jshint.files %>'],
-        tasks: ['jshint']
+        tasks: ['jshint', 'test']
       }
     },
     concurrent: {
@@ -36,6 +36,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-contrib-nodemon');
   grunt.loadNpmTasks('grunt-contrib-watch');
+  grunt.loadNpmTasks('grunt-js-test');
   grunt.loadNpmTasks('grunt-concurrent');
 
   grunt.registerTask('default', ['concurrent']);

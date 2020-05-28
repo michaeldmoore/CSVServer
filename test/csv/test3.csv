@@ -1,0 +1,3 @@
+datetime,sensor,region,value
+"2019-11-09 18:21:07.000","AAA","West",1.234
+"2019-11-10 21:18:42.000","BBB","North",0.233

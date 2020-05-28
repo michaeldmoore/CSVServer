@@ -14,8 +14,10 @@ const csv = require('csvtojson');
 
 const moment = require('moment');
 
+const loadIniFile = require('read-ini-file');
 const commandLineArgs = require('command-line-args');
 const commandLineUsage = require('command-line-usage');
+
 
 const optionDefinitions = [
   { name: 'port', type: Number, description: 'server listening port (defaulting to 4000)' },
@@ -23,6 +25,7 @@ const optionDefinitions = [
   { name: 'datecols', type: String, multiple: true, description: 'comma seperated list of date field headers'},
   { name: 'dateformat', type: String, description: 'date parsing format (e.g. dd/mm/yyyy HH:mm:ss - see {underline https://devhints.io/moment#formatting-1})'},
   { name: 'datetimefilter', type: String, description: "use query range [to|from|both|none] default=none"},
+  { name: 'configfile', type: String, description: "configuration filename (default=default.ini)"},
 ];
 
 const usage = commandLineUsage([
@@ -43,33 +46,38 @@ const usage = commandLineUsage([
 	}
 ]);
 
+var port = 4000;
 var folder = 'csv';
-var datetimeCols = [];
+var datecols = [];
 var dateformat = null;
 var datetimefilter = 'none';
 
 try{
-	const options = commandLineArgs(optionDefinitions);
+	const commandlineOptions = commandLineArgs(optionDefinitions);
+	const defaultOptions = loadIniFile.sync(commandlineOptions.configfile || './default.ini').options;
 
-	if (options.help) {
+	if (commandlineOptions.help) {
 		console.log(usage);
 	} else {
-		//app.log.info('options='+JSON.stringify(options));
+		app.log.info('commandlineOptions='+JSON.stringify(commandlineOptions));
+		app.log.info('defaultOptions='+JSON.stringify(defaultOptions));
 
-		folder = options.folder || 'csv';
-		datetimeCols = (options.datecols || 'date').split(',');
-		dateformat = options.dateformat;
-		datetimefilter = options.datetimefilter || datetimefilter;
+		port = commandlineOptions.port || defaultOptions.port || port;
+		folder = commandlineOptions.folder || defaultOptions.folder || folder;
+		datecols = (commandlineOptions.datecols || defaultOptions.datecols || 'date').split(',');
+		dateformat = commandlineOptions.dateformat || defaultOptions.dateformat;
+		datetimefilter = commandlineOptions.datetimefilter || defaultOptions.datetimefilter || datetimefilter;
 
 		if (fs.statSync(folder).isDirectory()){
-			app.listen(options.port || 4000, err => {
+			app.listen(port, err => {
 				if (err) {
 					app.log.error(err);
 					process.exit(1);
 				}
 
-				app.log.info('server listening on port ${app.server.address().port}');
+				app.log.info('server listening on port ' + app.server.address().port);
 			});
+			module.exports = app.server;
 		}
 		else {
 			app.log.error ('folder [' + folder + '] not found');
@@ -89,7 +97,12 @@ app.get('/', function (request, reply) {
 
 
 app.post('/search', (request, reply) => {
-	fs.readdir(folder, function(err, filenames) {
+	console.log('body='+JSON.stringify(request.body));
+	let thisFolder = folder;
+	if (request.body && request.body.folder)
+		thisFolder = request.body.folder;
+
+	fs.readdir(thisFolder, function(err, filenames) {
 		if (err) {
 			app.log.error(err);
 		}
@@ -101,6 +114,8 @@ app.post('/search', (request, reply) => {
 
 app.post('/query', function (request, reply) {
 	var result = [];
+
+	console.log('body='+JSON.stringify(request.body));
 
 	request.body.targets.forEach(function(target) {
 		target.dateRange = request.body.range;
@@ -119,7 +134,11 @@ app.post('/query', function (request, reply) {
 });
 
 async function query(target) {// jshint ignore:line
-	let filename = folder + '/' + target.target;
+	let thisFolder = folder;
+	if (target.data && target.data.folder)
+		thisFolder = target.data.folder;
+
+	let filename = thisFolder + '/' + target.target;
 	let json = await csv()// jshint ignore:line
 		.fromFile(filename, {headers : true, trim: true});
 
@@ -131,17 +150,17 @@ async function query(target) {// jshint ignore:line
 	if (target.data && target.data.datetimefilter)
 		filter = target.data.datetimefilter;
 
-	let datetimecols = datetimeCols;
-	if (target.data && target.data.datetimecols)
-		datetimecols = target.data.datetimecols.split(',');
+	let dateCols = datecols;
+	if (target.data && target.data.dateCols)
+		datecols = target.data.dateCols.split(',');
 
-		let cols = Object.keys(json[0]);
+	let cols = Object.keys(json[0]);
 
 	// find datetime column
 	let dateCol = 0;
 	let dateColName;
 	cols.forEach((colName, i) => {
-		datetimecols.forEach((name) => {
+		dateCols.forEach((name) => {
 			if (!dateColName && colName===name) {
 				dateColName=colName;
 				dateCol = i;
@@ -151,19 +170,19 @@ async function query(target) {// jshint ignore:line
 
 
 	if (target.type == 'table')
-		return parseGrafanaTableRecordSet(target, json, format, filter, cols, dateCol, datetimecols);
+		return parseGrafanaTableRecordSet(target, json, format, filter, cols, dateCol, dateCols);
 	else
 		return parseGrafanaTimeseriesRecordSet(target, json, format, filter, cols, dateCol);
 }
 
-function parseGrafanaTableRecordSet(target, json, format, filter, cols, dateCol, datetimecols){
-	let result = {type: target.type, columns: [], datetimeCols: []};
+function parseGrafanaTableRecordSet(target, json, format, filter, cols, dateCol, dateCols){
+	let result = {type: target.type, columns: [], dateCols: []};
 	cols.forEach(function(colName){
 		let col = {text: colName, type: colName == 'value' ? 'number' : 'string'};
 
-		if (datetimecols.find((d)=>d===colName))
+		if (dateCols.find((d)=>d===colName))
 		{
-			result.datetimeCols.push(colName);
+			result.dateCols.push(colName);
 			col.type = 'time';
 		}
 		result.columns.push(col);
@@ -193,8 +212,8 @@ function parseGrafanaTableRecordSet(target, json, format, filter, cols, dateCol,
 						(filter==="from" && datetime >= from) ||
 						(filter==="both" && datetime >= from && datetime <= to);
 
-						console.log("sdatetime="+sdatetime+', filter='+filter+', >=from:'+(datetime >= from)+', <=to:'+(datetime <= to)+', isDatetimeInRange:'+isDatetimeInRange+
-							", from="+from+', datetime='+datetime+', to='+to);
+//						console.log("sdatetime="+sdatetime+', filter='+filter+', >=from:'+(datetime >= from)+', <=to:'+(datetime <= to)+', isDatetimeInRange:'+isDatetimeInRange+
+//							", from="+from+', datetime='+datetime+', to='+to);
 				}
 			}
 		}
@@ -207,7 +226,7 @@ function parseGrafanaTableRecordSet(target, json, format, filter, cols, dateCol,
 
 	// trim excess rows (retaining the latest)
 	var excessRows = result.rows.length - target.maxDataPoints;
-console.log('result.rows.length='+result.rows.length+', excessRows='+excessRows);
+//console.log('result.rows.length='+result.rows.length+', excessRows='+excessRows);
 	if (excessRows > 0)
 		result.rows.splice(0, excessRows);
 
@@ -254,9 +273,10 @@ function parseGrafanaTimeseriesRecordSet(target, json, format, filter, cols, dat
 function isDatetimeCol(colName){
 	var rVal = false;
 
-	datetimeCols.forEach(function(datetimeCol) {
+	dateCols.forEach(function(datetimeCol) {
 		if (colName.includes(datetimeCol))
 			rVal = true;
 	});
 	return rVal;
 }
+
