@@ -2,7 +2,8 @@
 
 Simple node-based CSV adapter for Grafana Simple JSON data source
 
-This is a simple node application to read table or timeseries formatted CSV files as JSON, suitable for Granfana's SimpleJSON data source - or better still - the more capable upgraded simPod JSON datasource (https://github.com/simPod/grafana-json-datasource)
+This is a simple node application to read table or timeseries formatted CSV files as JSON, suitable for Grafana's SimpleJSON data source - or better still - the more capable upgraded simPod JSON datasource 
+(see https://github.com/simPod/grafana-json-datasource)
 
 
 
@@ -20,12 +21,37 @@ npm install
 node CSVServer.js
 ```
 
-Using these default settings, CSVServer serves CSV files from the default data folder (csv)
+## Configuration - Default.ini
 
-The data folder can be overriden using a single parameter on the command line, line this:
+On start up, CSVServer initializes a number of internal default settings from values defined in the default.ini file
+
+```
+[options]
+
+# default listing port
+port=4000
+
+# default CSV data file directory
+folder=./csv
+
+# default comma-seperated list of columns treated as datetime types
+#datecols=date,time
+datecols=date
+
+# default datatime column format (see https://momentjs.com/docs/#/parsing/)
+#dateformat=YYYY-MM-DD HH:mm:ss
+#dateformat=X
+
+# default flag used to control whether or not Grafana's from and to dates 
+#  should be used to filter out unwanted rows from the returned data set
+#  valid values : [none, to, from, both]
+#datetimefilter=none
+```
+
+Note - while previous versions used a single command line parameter to override the csv data folder, this is no longer supported.  Command line parameters can be used to override any of these configuration parameters, including an parameter to select an alternative configuration file, line this:
 
 ```javascript
-node CSVServer.js my-data-directory
+node CSVServer.js --configfile D:\root\alternate-csvserver-configfile.ini
 ```
 
 Alternatively, the default data folder can be specified with a command line option or (if the enhanced simPod JSON datasource has been used) - on a query-by-query basis, as parameters in Grafana queries 'Additional JSON data' fields.  See below.
@@ -84,7 +110,7 @@ Each row should have a date field (by default, named 'date' though this can be o
 
 CSVServer runs as a HTTP (REST) server, on port 4000 (this can be changed by editing CSVServer.js).  Also, note that the current version is set to run on the localhost (i.e. on the same server as Grafana itself).  Hosting CSVServer on a different server will most likely require a CORS header to be added to the source, and any firewalls configured to support it).  Adding secure HTTPS support would require a similar change.  No plans exist to build this support in - at least - not yet.
 
-## Setting up Grafana SimpleJSON datasource to use CSVServer
+## Setting up Grafana SimpleJSON or simPod.JSON datasource to use with CSVServer
 
 The SimpleJSON datasource plugin needs to be installed first.  If not already installed, stop Grafana server and run the following command line (windows):
 
@@ -92,7 +118,7 @@ The SimpleJSON datasource plugin needs to be installed first.  If not already in
 grafana-cli plugins install grafana-simple-json-datasource
 ```
 
-Newer versions of Grafana provide an alternative, presumably enhanced, datasource named simpod JSON.  This appears to be completely backwards compatible with SimpleJSON.  Install the JSON datasource instead using the alternate command line (windows)
+Newer versions of Grafana provide an alternative, presumably enhanced, datasource named simPod JSON.  This appears to be completely backwards compatible with SimpleJSON.  Install the JSON datasource instead using the alternate command line (windows)
 
 ```javascript
 grafana-cli plugins install simpod-json-datasource
@@ -112,7 +138,7 @@ Once in operation, the CSV files can be updated dynamically - each data request 
 
 ## Server options/overrides
 
-By default, CSVServer serves CSV files from a subfolder ('csv').  This, as mentioned above can be overriden using a default parameter on the command line used to start CSVServer (see above)
+By default, CSVServer serves CSV files from a subfolder ('csv').  This, as mentioned above can be overridden using a default parameter on the command line used to start CSVServer (see above)
 
 Additionally, this and several other options can be specified on the start-up command line to change the default behaviour of CSVServer.
 
@@ -133,7 +159,7 @@ By default, CSVServer treats columns named 'date' as a date/time field.  All oth
 
 ### --dateformat
 
-By default, CSVServer expects the first field of CSV files involved in timeseries quesries to be formatted in ISO standard format - that means, something like 'YYYY-MM-DD HH:mm:ss' (plus the optional mS and timezone extensions).  Non ISO-formatted date/time fields, such as commonly used in the US (MM-DD-YYYY) and Europe (DD-MM-YYYY) cannot be parsed correctly using the default setting.  This option allows the datetime formatting string to be set for all queries.  Note, the formatting characters are case sensitive.  
+By default, CSVServer expects the first field of CSV files involved in timeseries queries to be formatted in ISO standard format - that means, something like 'YYYY-MM-DD HH:mm:ss' (plus the optional mS and timezone extensions).  Non ISO-formatted date/time fields, such as commonly used in the US (MM-DD-YYYY) and Europe (DD-MM-YYYY) cannot be parsed correctly using the default setting.  This option allows the datetime formatting string to be set for all queries.  Note, the formatting characters are case sensitive.  
 
 | Input      | Example          | Description                                                  |
 | :--------- | :--------------- | :----------------------------------------------------------- |
@@ -153,7 +179,7 @@ See <https://devhints.io/moment> for more on formatting codes recognized by mome
 
 ### --nodatetimefilter
 
-By default, CSVServer filters out records where the datetime field falls outside the query date/time range.  Sometimes, it can be helpful to turn this filtering off, leaving it up to the Grafana display panels to decide which records to display.  Setting this option on the command line turns this internal filtering off, so every row in the CSV file will be returned to Garafana regardless of the current display date/time range.
+By default, CSVServer filters out records where the datetime field falls outside the query date/time range.  Sometimes, it can be helpful to turn this filtering off, leaving it up to the Grafana display panels to decide which records to display.  Setting this option on the command line turns this internal filtering off, so every row in the CSV file will be returned to Grafana regardless of the current display date/time range.
 
 ## Per-query overrides (available with simPod.JSON datasource) 'Additional JSON data' query parameter
 
