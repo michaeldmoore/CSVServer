@@ -90,7 +90,7 @@ The SimpleJSON datasource plugin needs to be installed first.  If not already in
 grafana-cli plugins install grafana-simple-json-datasource
 ```
 
-Newer versions of Grafana provide an alternative, presumably enhanced, datasource named simpll JSON.  This appears to be completely backwards compatible with SimpleJSON.  Install the JSON datasource instead using the alternate command line (windows)
+Newer versions of Grafana provide an alternative, presumably enhanced, datasource named simply JSON.  This appears to be completely backwards compatible with SimpleJSON.  Install the JSON datasource instead using the alternate command line (windows)
 
 ```javascript
 grafana-cli plugins install simpod-json-datasource
