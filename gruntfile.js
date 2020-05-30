@@ -20,7 +20,7 @@ module.exports = function(grunt) {
     watch: {
       scripts: {
         files: ['<%= jshint.files %>'],
-        tasks: ['jshint', 'test']
+        tasks: ['jshint']
       }
     },
     concurrent: {

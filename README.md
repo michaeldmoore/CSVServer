@@ -58,7 +58,7 @@ node CSVServer.js --configfile D:\root\alternate-csvserver-configfile.ini
 
 Alternatively, the default data folder can be specified with a command line option or (if the enhanced simPod JSON datasource has been used) - on a query-by-query basis, as parameters in Grafana queries 'Additional JSON data' fields.  See below.
 
-Note:  In this initial release, the date-range filters used by Grafana was disabled by default, so that ALL the data in the CSV file was returned to the client, irrespective of the current Grafana display date/time range.  This, while possibly being inefficient in a real-world/production environment where data sets could become very large, could be useful when debugging queries.  The current release turns this option ON by default.  See below for command line and per-query options allowing this to be set or reset dynamically.
+Note:  In this initial release, the date-range filters used by Grafana were disabled by default, so that ALL the data in the CSV file was returned to the client, irrespective of the current Grafana display date/time range.  This, while possibly being inefficient in a real-world/production environment where data sets could become very large, could be useful when debugging queries.  The current release turns this option ON by default.  See below for command line and per-query options allowing this to be set or reset dynamically.
 
 ## Sample table formatted CSV file
 
@@ -137,6 +137,10 @@ Now define the URL to point to the node server, and click on 'Save & Test'
 The SimpleJSON configuration screen has a number of other options which might be useful under certain circumstances - generally the defaults should work.
 
 Once in operation, the CSV files can be updated dynamically - each data request from Grafana will cause the files to be re-parsed, so you should be able to see the effects immediately.
+
+
+
+[More details regarding timeseries queries in Grafana](TimeseriesQueries.md)
 
 ## Server options/overrides
 

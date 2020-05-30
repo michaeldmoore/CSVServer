@@ -97,7 +97,7 @@ app.get('/', function (request, reply) {
 
 
 app.post('/search', (request, reply) => {
-	console.log('body='+JSON.stringify(request.body));
+//	console.log('body='+JSON.stringify(request.body));
 	let thisFolder = folder;
 	if (request.body && request.body.folder)
 		thisFolder = request.body.folder;
@@ -115,9 +115,12 @@ app.post('/search', (request, reply) => {
 app.post('/query', function (request, reply) {
 	var result = [];
 
-	console.log('body='+JSON.stringify(request.body));
+//	console.log('body='+JSON.stringify(request.body));
 
-	request.body.targets.forEach(function(target) {
+	var promises = [];
+
+	request.body.targets.forEach(function(target, index) {
+//		console.log('target['+index+']');
 		target.dateRange = request.body.range;
 		target.maxDataPoints = request.body.maxDataPoints;
 		var p = new Promise(function(resolve, reject) {
@@ -125,12 +128,24 @@ app.post('/query', function (request, reply) {
 				resolve(data);
 			});
 		});
-		p.then(function(val) {
-			reply.send(val);
-		}).catch(function(reason) {
-			app.log.error(reason);
-		});
+		promises.push(p);
 	});
+
+	Promise.all(promises).then(function(val) {
+//		console.log('val='+JSON.stringify(val));
+
+		var result = [];
+		val.forEach((vali, i) => {
+//			console.log('val['+i+']='+JSON.stringify(vali));
+			result = result.concat(vali);
+		});
+//		console.log('result='+JSON.stringify(result));
+
+		reply.send(result);
+	}).catch(function(reason) {
+		app.log.error(reason);
+	});
+
 });
 
 async function query(target) {// jshint ignore:line
