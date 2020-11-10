@@ -35,7 +35,7 @@
     "command-line-usage": "^6.1.0",
     "csvtojson": "^2.0.10",
     "fast-csv": "^3.4.0",
-    "fastify": "^2.10.0",
+    "fastify": "^2.15.1",
     "fs": "0.0.2",
     "moment": "^2.24.0",
     "pino-pretty": "^3.2.2",
