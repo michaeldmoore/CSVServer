@@ -69,7 +69,7 @@ try{
 		datetimefilter = commandlineOptions.datetimefilter || defaultOptions.datetimefilter || datetimefilter;
 
 		if (fs.statSync(folder).isDirectory()){
-			app.listen(port, err => {
+			app.listen(port, '0.0.0.0', err => {
 				if (err) {
 					app.log.error(err);
 					process.exit(1);
@@ -115,20 +115,22 @@ app.post('/search', (request, reply) => {
 app.post('/query', function (request, reply) {
 	var result = [];
 
-//	console.log('body='+JSON.stringify(request.body));
+//	console.log('body='+JSON.stringify(request.body, null, 4));
 
 	var promises = [];
 
 	request.body.targets.forEach(function(target, index) {
 //		console.log('target['+index+']');
-		target.dateRange = request.body.range;
-		target.maxDataPoints = request.body.maxDataPoints;
-		var p = new Promise(function(resolve, reject) {
-			query(target).then(function(data){
-				resolve(data);
+		if (target.target) {
+			target.dateRange = request.body.range;
+			target.maxDataPoints = request.body.maxDataPoints;
+			var p = new Promise(function(resolve, reject) {
+				query(target).then(function(data){
+					resolve(data);
+				});
 			});
-		});
-		promises.push(p);
+			promises.push(p);
+		}
 	});
 
 	Promise.all(promises).then(function(val) {
