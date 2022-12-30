@@ -28,7 +28,7 @@
     "grunt-contrib-nodemon": "^0.5.4",
     "grunt-contrib-watch": "^1.1.0",
     "grunt-js-test": "^2.0.3",
-    "mocha": "^7.1.2"
+    "mocha": "^10.2.0"
   },
   "dependencies": {
     "command-line-args": "^5.1.1",
